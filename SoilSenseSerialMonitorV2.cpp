@@ -38,13 +38,13 @@ void flushbuffer();
 
 // for the data logging shield, we use digital pin 10 for the SD cs line
 #define ECHO_TO_SERIAL 1 // echo data to serial port
-#define LOG_TO_SDCARD 0 // log data received
+#define LOG_TO_SDCARD 1 // log data received
 #define RT_CLOCK 0 // use of RTC
 #define MAX_NODE 16
 const uint32_t syncInterval = 180000; // mills between calls to flush() - to write data tao the card
 const int chipSelect = 10;
 const byte buttonPin = 5;
-const byte ledPin = 13;
+const byte ledPin = 6;
 const byte rxPin = 7;
 const byte txPin = 8;
 const uint16_t baudRate = 500;
@@ -519,7 +519,7 @@ void loop() {
 			
 			// Log stats for receipt of packets
 			#if LOG_TO_SDCARD
-			if (!packetCount[nibble])
+			if (packetCount[nibble] == 0)
 			{
 				logfilecomma();
 				logfile.println(packetsSent);
@@ -531,7 +531,7 @@ void loop() {
 			#endif
 			
 			#if ECHO_TO_SERIAL
-			if (!packetCount[nibble])
+			if (!packetCount[nibble] == 0)
 			{
 				Serialcomma();
 				Serial.println(packetsSent);
