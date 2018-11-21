@@ -37,11 +37,17 @@ void flushbuffer();
 
 
 // for the data logging shield, we use digital pin 10 for the SD cs line
-#define ECHO_TO_SERIAL 1 // echo data to serial port
+#define USE_SERIAL 1 // echo data to serial port
 #define LOG_TO_SDCARD 1 // log data received
-#define RT_CLOCK 0 // use of RTC
+#define RT_CLOCK 1 // use of RTC
 #define MAX_NODE 16
-#define BUTTON 0
+#define BUTTON 1
+// code to process time sync messages from the serial port   */
+#define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by unix time_t as ten ascii digits
+#define TIME_HEADER  'T'   // Header tag for serial time sync message e.g. T1542831319
+
+
+
 const uint32_t syncInterval = 180000; // mills between calls to flush() - to write data tao the card
 const int chipSelect = 10;
 const byte buttonPin = 5;
@@ -66,7 +72,7 @@ RTC_DS1307 RTC; // define the Real Time Clock object
 #endif
 #if LOG_TO_SDCARD
 File logfile;  // the logging file
-char filename[] = "sd_03_00.CSV";
+char filename[] = "sd_05_00.CSV";
 #endif
 
 RH_ASK driver(baudRate, rxPin, txPin); //speed, Rx pin, Tx pin
@@ -148,7 +154,7 @@ void Serialcomma()
 
 void error(byte error_no)
 {
-	#if ECHO_TO_SERIAL
+	#if USE_SERIAL
 	Serial.print(F("error: "));
 	switch (error_no) {
 		case 1:
@@ -182,7 +188,7 @@ void flushbuffer()
 	logfile.flush();
 	sei();
 	digitalWrite(ledPin, LOW);
-	#if ECHO_TO_SERIAL
+	#if USE_SERIAL
 	Serial.println(F("Flushed buffer"));
 	#endif
 
@@ -191,25 +197,27 @@ void flushbuffer()
 }
 
 
-/*  code to process time sync messages from the serial port   */
-#define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by unix time_t as ten ascii digits
-#define TIME_HEADER  'T'   // Header tag for serial time sync message
 
 ///////////////////////////////////processSyncMessage//////////////////////////////////////
-uint32_t processSyncMessage() {
+uint32_t processSyncMessage()
+{
 	// return the time if a valid sync message is received on the serial port.
-	while(Serial.available() >=  TIME_MSG_LEN ){  // time message consists of a header and ten ascii digits
+	// time message consists of a header and ten ascii digits
+	while(Serial.available() < TIME_MSG_LEN) {;;}  //wait til 11 digits are available
+	{
 		char c = Serial.read() ;
-		Serial.print(c);
-		if( c == TIME_HEADER ) {
-			time_t pctime = 0;
-			for(int i=0; i < TIME_MSG_LEN -1; i++){
+		if( c == TIME_HEADER )
+		{
+			uint32_t unixTime = 0;
+			for(int i = 0; i < (TIME_MSG_LEN - 1); i++)
+			{
 				c = Serial.read();
-				if( c >= '0' && c <= '9'){
-					pctime = (10 * pctime) + (c - '0') ; // convert digits to a number
+				if( c >= '0' && c <= '9')
+				{
+					unixTime = (10 * unixTime) + (c - '0') ; // convert digits to a number
 				}
 			}
-			return pctime;
+			return unixTime;
 		}
 	}
 	return 0;
@@ -217,15 +225,17 @@ uint32_t processSyncMessage() {
 ///////////////////////////////////setup//////////////////////////////////////
 
 void setup() {
-	#if ECHO_TO_SERIAL
+	#if USE_SERIAL
 	Serial.begin(115200);
+	delay(1000);
 	#endif
 
 	// use debugging LED
 	pinMode(ledPin, OUTPUT);
 
-	#if ECHO_TO_SERIAL
-	Serial.println(F("Type character"));
+	#if USE_SERIAL
+	while (Serial.available()) {Serial.read();}
+	Serial.println(F("Enter 11 char unix timestamp 'T1234567890'"));
 	while (!Serial.available());
 	#endif // wait to start
 
@@ -236,12 +246,26 @@ void setup() {
 	{
 		error(3);
 	}
-	if(Serial.available())
+	
+	#if USE_SERIAL
+	uint32_t t = processSyncMessage();
+	if (t > 0)
 	{
-		uint32_t t = processSyncMessage();
-		if(t >0)
-		{
-		rtc.adjust(DateTime(t));		  }
+		RTC.adjust(DateTime(t));
+		DateTime now = RTC.now();
+		Serial.print(F("Time adjusted to:"));		
+		Serial.print(now.year(), DEC);
+		Serial.print('/');
+		Serial.print(now.month(), DEC);
+		Serial.print('/');
+		Serial.print(now.day(), DEC);
+		Serial.print(' ');
+		Serial.print(now.hour(), DEC);
+		Serial.print(':');
+		Serial.print(now.minute(), DEC);
+		Serial.print(':');
+		Serial.print(now.second(), DEC);
+		Serial.println();
 	}
 	// following line sets the RTC to the date & time this sketch was compiled
 	//rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
@@ -249,12 +273,13 @@ void setup() {
 	// Nov 21, 2018 at 190600 hhmmss you would call:
 	// rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
 	#endif
+	#endif
 	
 	
 	#if LOG_TO_SDCARD
 
 	// initialize the SD card
-	#if ECHO_TO_SERIAL
+	#if USE_SERIAL
 	Serial.print(F("Initializing SD card..."));
 	#endif
 	// make sure that the default chip select pin is set to
@@ -265,7 +290,7 @@ void setup() {
 	if (!SD.begin(chipSelect)) {
 		error(1);
 	}
-	#if ECHO_TO_SERIAL
+	#if USE_SERIAL
 	Serial.println(F("card initialized."));
 	#endif
 
@@ -284,7 +309,7 @@ void setup() {
 	if (! logfile) {
 		error(2);
 	}
-	#if ECHO_TO_SERIAL
+	#if USE_SERIAL
 	Serial.print(F("Log-> "));
 	Serial.println(filename);
 	#endif
@@ -309,7 +334,7 @@ void setup() {
 
 
 
-	#if ECHO_TO_SERIAL
+	#if USE_SERIAL
 	Serial.print(F("millis,"));
 	#if RT_CLOCK
 	Serial.print(F("stamp,"));
@@ -343,7 +368,7 @@ void loop() {
 		if (stopLogging)
 		{
 			logfile.close();
-			#if ECHO_TO_SERIAL
+			#if USE_SERIAL
 			Serial.println(F("OK to remove SD card"));
 			#endif
 		}
@@ -354,7 +379,7 @@ void loop() {
 				error(1);
 			}
 			logfile = SD.open(filename, FILE_WRITE);
-			#if ECHO_TO_SERIAL
+			#if USE_SERIAL
 			Serial.println(F("Logging resumed"));
 			#endif
 		}
@@ -428,7 +453,7 @@ void loop() {
 			logfilecomma();
 			#endif
 			
-			#if ECHO_TO_SERIAL
+			#if USE_SERIAL
 			Serial.print(m);         // milliseconds since start
 			Serialcomma();
 			#if RT_CLOCK
@@ -458,7 +483,7 @@ void loop() {
 				logfile.print(payloadTemp.varCountChipTemp);
 				#endif
 				
-				#if ECHO_TO_SERIAL
+				#if USE_SERIAL
 				Serial.print(payloadTemp.RCtime);
 				Serialcomma();
 				Serial.print(payloadTemp.tmp);
@@ -486,7 +511,7 @@ void loop() {
 					logfile.print(payloadStatus.millisec);
 					#endif
 					
-					#if ECHO_TO_SERIAL
+					#if USE_SERIAL
 					Serial.print(payloadStatus.temp);
 					Serialcomma();
 					Serial.print(payloadStatus.Vcc);
@@ -525,7 +550,7 @@ void loop() {
 					logfile.print(((payloadTime.fineTime & ((1L << convert2Microsec) - 1L)) * 10000) >> convert2Microsec);
 					#endif
 					
-					#if ECHO_TO_SERIAL
+					#if USE_SERIAL
 					Serial.print(payloadTime.bin2usCoarse);
 					Serialcomma();
 					Serial.print(payloadTime.bin2usFine);
@@ -569,7 +594,7 @@ void loop() {
 			}
 			#endif
 			
-			#if ECHO_TO_SERIAL
+			#if USE_SERIAL
 			if (!packetCount[nibble] == 0)
 			{
 				Serialcomma();
