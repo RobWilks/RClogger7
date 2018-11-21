@@ -41,6 +41,7 @@ void flushbuffer();
 #define LOG_TO_SDCARD 1 // log data received
 #define RT_CLOCK 0 // use of RTC
 #define MAX_NODE 16
+#define BUTTON 0
 const uint32_t syncInterval = 180000; // mills between calls to flush() - to write data tao the card
 const int chipSelect = 10;
 const byte buttonPin = 5;
@@ -188,6 +189,31 @@ void flushbuffer()
 	#endif
 
 }
+
+
+/*  code to process time sync messages from the serial port   */
+#define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by unix time_t as ten ascii digits
+#define TIME_HEADER  'T'   // Header tag for serial time sync message
+
+///////////////////////////////////processSyncMessage//////////////////////////////////////
+uint32_t processSyncMessage() {
+	// return the time if a valid sync message is received on the serial port.
+	while(Serial.available() >=  TIME_MSG_LEN ){  // time message consists of a header and ten ascii digits
+		char c = Serial.read() ;
+		Serial.print(c);
+		if( c == TIME_HEADER ) {
+			time_t pctime = 0;
+			for(int i=0; i < TIME_MSG_LEN -1; i++){
+				c = Serial.read();
+				if( c >= '0' && c <= '9'){
+					pctime = (10 * pctime) + (c - '0') ; // convert digits to a number
+				}
+			}
+			return pctime;
+		}
+	}
+	return 0;
+}
 ///////////////////////////////////setup//////////////////////////////////////
 
 void setup() {
@@ -203,7 +229,28 @@ void setup() {
 	while (!Serial.available());
 	#endif // wait to start
 
-
+	#if RT_CLOCK
+	// connect to RTC
+	Wire.begin();
+	if (!RTC.begin())
+	{
+		error(3);
+	}
+	if(Serial.available())
+	{
+		uint32_t t = processSyncMessage();
+		if(t >0)
+		{
+		rtc.adjust(DateTime(t));		  }
+	}
+	// following line sets the RTC to the date & time this sketch was compiled
+	//rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+	// This line sets the RTC with an explicit date & time, for example to set
+	// Nov 21, 2018 at 190600 hhmmss you would call:
+	// rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+	#endif
+	
+	
 	#if LOG_TO_SDCARD
 
 	// initialize the SD card
@@ -245,14 +292,6 @@ void setup() {
 	logfile.println(F("millis,stamp,node,count,RCtime,tmp,chipTemp,Vbatt,var1,var2"));
 	#endif // LOG_TO_SDCARD
 	
-	#if RT_CLOCK
-	// connect to RTC
-	Wire.begin();
-	if (!RTC.begin())
-	{
-		error(3);
-	}
-	#endif
 	
 	
 	if (!driver.init())
@@ -296,7 +335,7 @@ void loop() {
 	uint8_t convert2Microsec;
 	
 	#if LOG_TO_SDCARD
-
+	#if BUTTON
 	if (buttonState && !digitalRead(buttonPin)) // check for button push NB debouncing hardwired
 	{
 		buttonState = false;
@@ -321,7 +360,7 @@ void loop() {
 		}
 	}
 	if (!buttonState && digitalRead(buttonPin)) buttonState = true; // check for button release
-
+	#endif
 	#endif
 
 	if (stopLogging == true) // when logging stopped only action is to flash LED; packets are ignored
@@ -403,7 +442,7 @@ void loop() {
 			#endif
 			
 			
-			if (nibble != 12)			
+			if (nibble != 12)
 			{
 				#if LOG_TO_SDCARD
 				logfile.print(payloadTemp.RCtime);
