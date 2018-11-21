@@ -353,9 +353,9 @@ void loop() {
 			#if RT_CLOCK
 			DateTime now = RTC.now();
 			#endif
-			long packetsSent = 0; // the first value logged is indeterminate only set on later logs
+			long packetsSent = 0; // the first value logged is indeterminate; only set on later logs
 
-			if (firstPacket[nibble]) // initialise %packet variables
+			if (firstPacket[nibble]) // initialize %packet variables
 			{
 				firstPacket[nibble] = false;
 				packetCount[nibble] = 0;
@@ -367,9 +367,9 @@ void loop() {
 				// calculate the percentx10 transmission rate
 				if (packetCount[nibble] == packetCountMax)
 				{
-					packetsSent = count - startPacket[nibble];
-					if (packetsSent < 0) packetsSent = packetsSent + 256; // check for wrap-round
-					packetsSent = 1000L * packetCountMax / packetsSent; // convert to percentx10
+					packetsSent = (long)count - (long)startPacket[nibble];
+					if (packetsSent < 0) packetsSent = packetsSent + 256L; // check for wrap-round
+					packetsSent = 1000L * (long)packetCountMax / packetsSent; // convert to percentx10
 					packetCount[nibble] = 0;
 					startPacket[nibble] = count;
 				}
@@ -417,7 +417,6 @@ void loop() {
 				logfile.print(payloadTemp.varCountTMP);
 				logfilecomma();
 				logfile.print(payloadTemp.varCountChipTemp);
-				logfilecomma();
 				#endif
 				
 				#if ECHO_TO_SERIAL
@@ -432,13 +431,12 @@ void loop() {
 				Serial.print(payloadTemp.varCountTMP);
 				Serialcomma();
 				Serial.print(payloadTemp.varCountChipTemp);
-				Serialcomma();
 				#endif
 			}
 			
 			else
 			{
-				if (nibble & 0x20)
+				if (node & 0x20)
 				// Status packet for soilSense
 				{
 					#if LOG_TO_SDCARD
@@ -447,7 +445,6 @@ void loop() {
 					logfile.print(payloadStatus.Vcc);
 					logfilecomma();
 					logfile.print(payloadStatus.millisec);
-					logfilecomma();
 					#endif
 					
 					#if ECHO_TO_SERIAL
@@ -456,7 +453,6 @@ void loop() {
 					Serial.print(payloadStatus.Vcc);
 					Serialcomma();
 					Serial.print(payloadStatus.millisec);
-					Serialcomma();
 					#endif
 				}
 				else
