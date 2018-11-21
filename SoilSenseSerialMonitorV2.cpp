@@ -38,8 +38,8 @@ void flushbuffer();
 
 // for the data logging shield, we use digital pin 10 for the SD cs line
 #define ECHO_TO_SERIAL 1 // echo data to serial port
-#define LOG_TO_SDCARD 1 // log data received
-#define RT_CLOCK 1 // use of RTC
+#define LOG_TO_SDCARD 0 // log data received
+#define RT_CLOCK 0 // use of RTC
 #define MAX_NODE 16
 const uint32_t syncInterval = 180000; // mills between calls to flush() - to write data tao the card
 const int chipSelect = 10;
@@ -137,7 +137,7 @@ void logfilecomma()
 	logfile.print(",");
 	#endif
 }
-/////////////////////////////////serialcomma////////////////////////////////////////
+/////////////////////////////////Serialcomma////////////////////////////////////////
 void Serialcomma()
 {
 	Serial.print(",");
@@ -293,6 +293,8 @@ void setup() {
 /////////////////////////////////loop////////////////////////////////////////
 
 void loop() {
+	uint8_t convert2Microsec;
+	
 	#if LOG_TO_SDCARD
 
 	if (buttonState && !digitalRead(buttonPin)) // check for button push NB debouncing hardwired
@@ -389,20 +391,19 @@ void loop() {
 			
 			#if ECHO_TO_SERIAL
 			Serial.print(m);         // milliseconds since start
-			serialcomma();
+			Serialcomma();
 			#if RT_CLOCK
 			Serial.print(now.unixtime()); // seconds since 1/1/1970
-			serialcomma();
+			Serialcomma();
 			#endif
 			Serial.print(node);
-			serialcomma();
+			Serialcomma();
 			Serial.print(count);
-			serialcomma();
+			Serialcomma();
 			#endif
 			
 			
-			if (nibble) != 12)
-			
+			if (nibble != 12)			
 			{
 				#if LOG_TO_SDCARD
 				logfile.print(payloadTemp.RCtime);
@@ -418,6 +419,7 @@ void loop() {
 				logfile.print(payloadTemp.varCountChipTemp);
 				logfilecomma();
 				#endif
+				
 				#if ECHO_TO_SERIAL
 				Serial.print(payloadTemp.RCtime);
 				Serialcomma();
@@ -447,6 +449,7 @@ void loop() {
 					logfile.print(payloadStatus.millisec);
 					logfilecomma();
 					#endif
+					
 					#if ECHO_TO_SERIAL
 					Serial.print(payloadStatus.temp);
 					Serialcomma();
@@ -486,6 +489,7 @@ void loop() {
 					logfile.print(F("."));
 					logfile.print(((payloadTime.fineTime & ((1L << convert2Microsec) - 1L)) * 10000) >> convert2Microsec);
 					#endif
+					
 					#if ECHO_TO_SERIAL
 					Serial.print(payloadTime.bin2usCoarse);
 					Serialcomma();
@@ -499,7 +503,7 @@ void loop() {
 					/*
 					Print coarse measurement
 					*/
-					uint8_t convert2Microsec = payloadTime.bin2usCoarse;
+					convert2Microsec = payloadTime.bin2usCoarse;
 					Serial.print(payloadTime.coarseTime >> convert2Microsec);
 					Serial.print(F("."));
 					Serial.print(((payloadTime.coarseTime & ((1L << convert2Microsec) - 1L)) * 100) >> convert2Microsec);
@@ -529,6 +533,7 @@ void loop() {
 				logfile.println();
 			}
 			#endif
+			
 			#if ECHO_TO_SERIAL
 			if (!packetCount[nibble])
 			{
@@ -541,8 +546,6 @@ void loop() {
 			}
 			#endif
 			
-
-
 			digitalWrite(ledPin, LOW);
 		}
 
