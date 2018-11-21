@@ -1,4 +1,4 @@
-﻿/*Begining of Auto generated code by Atmel studio */
+/*Begining of Auto generated code by Atmel studio */
 #include <Arduino.h>
 
 /*End of auto generated code by Atmel studio */
@@ -28,7 +28,7 @@ if (root.isOpen()) root.close();  // <<<<<<<<<<<<<<<<<<  ADD THIS LINE
 #include <SPI.h> // Not actually used but needed to compile
 //Beginning of Auto generated function prototypes by Atmel Studio
 void logfilecomma();
-void serialcomma();
+void Serialcomma();
 void error(byte error_no);
 void flushbuffer();
 //End of Auto generated function prototypes by Atmel Studio
@@ -77,8 +77,28 @@ RH_ASK driver(baudRate, rxPin, txPin); //speed, Rx pin, Tx pin
 /// \param[in] pttPin The pin that is connected to the transmitter controller. It will be set HIGH to enable the transmitter (unless pttInverted is true).
 /// \param[in] pttInverted true if you desire the pttin to be inverted so that LOW wil enable the transmitter.
 
-////////////////////////////////////struct PayloadItem/////////////////////////////////////
-typedef struct PayloadItem
+///////////////////////////////////struct PayloadItem//////////////////////////////////////
+
+typedef struct {
+	byte nodeId;
+	byte count;
+	unsigned long RCtime;
+	int tmp; // could be negative
+	int chipTemp; // could be negative
+	unsigned int Vbatt;
+	byte varCountTMP;
+	byte varCountChipTemp;
+} PayloadItem;
+PayloadItem payloadTemp;
+// structure for temp nodes
+// could compress packet for final version since tmp requires 9 bits and Vbatt 14
+// use the node byte to carry a flag for movement in bit 7
+// RC time is approximate since using only watchdog timer
+// count keeps track of the # packets sent out
+// user data 14 bytes; require RH_ASK_MAX_PAYLOAD_LEN > user data + 7
+
+////////////////////////////////////struct PayloadItem1/////////////////////////////////////
+typedef struct PayloadItem1
 {
 	byte nodeId; //store this nodeId
 	byte count;
@@ -91,7 +111,7 @@ typedef struct PayloadItem
 };
 // count keeps track of the # packets sent out
 
-PayloadItem payloadTime;
+PayloadItem1 payloadTime;
 
 
 ////////////////////////////////////struct PayloadItem2/////////////////////////////////////
@@ -104,7 +124,7 @@ typedef struct PayloadItem2
 	unsigned long millisec;
 	unsigned long empty;
 };
-// time is approximate since  using only watchdog timer
+// millisec time is approximate since  using only watchdog timer
 
 PayloadItem2 payloadStatus;
 
@@ -118,7 +138,7 @@ void logfilecomma()
 	#endif
 }
 /////////////////////////////////serialcomma////////////////////////////////////////
-void serialcomma()
+void Serialcomma()
 {
 	Serial.print(",");
 }
@@ -317,9 +337,14 @@ void loop() {
 		{
 			digitalWrite(ledPin, HIGH);
 			delay(250);
-			payloadTime = *(PayloadItem*)buf;
-			payloadStatus = *(PayloadItem2*)buf;  // time and status packets have different structures
-			byte node = payloadTime.nodeId & 0x0f; // the ID is the first nibble
+			payloadTemp = *(PayloadItem*)buf;
+			payloadTime = *(PayloadItem1*)buf;
+			payloadStatus = *(PayloadItem2*)buf;  // temp, time and status packets have different structures
+			
+			byte node = payloadTemp.nodeId; // all packet structures start with node and count; the ID is the first nibble
+			byte nibble = node & 0x0f;
+			byte count = payloadTemp.count;
+			
 			// log milliseconds since starting
 			uint32_t m = millis();
 			// fetch the time
@@ -328,51 +353,112 @@ void loop() {
 			#endif
 			long packetsSent = 0; // the first value logged is indeterminate only set on later logs
 
-			if (firstPacket[node]) // initialise %packet variables
+			if (firstPacket[nibble]) // initialise %packet variables
 			{
-				firstPacket[node] = false;
-				packetCount[node] = 0;
-				startPacket[node] = payloadTime.count;
+				firstPacket[nibble] = false;
+				packetCount[nibble] = 0;
+				startPacket[nibble] = count;
 			}
 			else
 			{
-				++packetCount[node];
+				++packetCount[nibble];
 				// calculate the percentx10 transmission rate
-				if (packetCount[node] == packetCountMax)
+				if (packetCount[nibble] == packetCountMax)
 				{
-					packetsSent = payloadTime.count - startPacket[node];
+					packetsSent = count - startPacket[nibble];
 					if (packetsSent < 0) packetsSent = packetsSent + 256; // check for wrap-round
 					packetsSent = 1000L * packetCountMax / packetsSent; // convert to percentx10
-					packetCount[node] = 0;
-					startPacket[node] = payloadTime.count;
+					packetCount[nibble] = 0;
+					startPacket[nibble] = count;
 				}
 			}
 
-
-			if ((payloadTime.nodeId & 0x0f) == 12)
+			// First 6 bytes same for all packets
+			#if LOG_TO_SDCARD
+			logfile.print(m);         // milliseconds since start
+			logfilecomma();
+			#if RT_CLOCK
+			logfile.print(now.unixtime()); // seconds since 1/1/1970
+			logfilecomma();
+			#endif
+			logfile.print(node);
+			logfilecomma();
+			logfile.print(count);
+			logfilecomma();
+			#endif
+			
+			#if ECHO_TO_SERIAL
+			Serial.print(m);         // milliseconds since start
+			serialcomma();
+			#if RT_CLOCK
+			Serial.print(now.unixtime()); // seconds since 1/1/1970
+			serialcomma();
+			#endif
+			Serial.print(node);
+			serialcomma();
+			Serial.print(count);
+			serialcomma();
+			#endif
+			
+			
+			if (nibble) != 12)
+			
 			{
 				#if LOG_TO_SDCARD
-				logfile.print(m);         // milliseconds since start
+				logfile.print(payloadTemp.RCtime);
 				logfilecomma();
-				#if RT_CLOCK
-				logfile.print(now.unixtime()); // seconds since 1/1/1970
+				logfile.print(payloadTemp.tmp);
+				logfilecomma();
+				logfile.print(payloadTemp.chipTemp);
+				logfilecomma();
+				logfile.print(payloadTemp.Vbatt);
+				logfilecomma();
+				logfile.print(payloadTemp.varCountTMP);
+				logfilecomma();
+				logfile.print(payloadTemp.varCountChipTemp);
 				logfilecomma();
 				#endif
-				logfile.print(payloadTime.nodeId);
-				logfilecomma();
-				logfile.print(payloadTime.count);
-				logfilecomma();
-				if (payloadTime.nodeId & 0x20)
+				#if ECHO_TO_SERIAL
+				Serial.print(payloadTemp.RCtime);
+				Serialcomma();
+				Serial.print(payloadTemp.tmp);
+				Serialcomma();
+				Serial.print(payloadTemp.chipTemp);
+				Serialcomma();
+				Serial.print(payloadTemp.Vbatt);
+				Serialcomma();
+				Serial.print(payloadTemp.varCountTMP);
+				Serialcomma();
+				Serial.print(payloadTemp.varCountChipTemp);
+				Serialcomma();
+				#endif
+			}
+			
+			else
+			{
+				if (nibble & 0x20)
+				// Status packet for soilSense
 				{
+					#if LOG_TO_SDCARD
 					logfile.print(payloadStatus.temp);
 					logfilecomma();
 					logfile.print(payloadStatus.Vcc);
 					logfilecomma();
 					logfile.print(payloadStatus.millisec);
 					logfilecomma();
+					#endif
+					#if ECHO_TO_SERIAL
+					Serial.print(payloadStatus.temp);
+					Serialcomma();
+					Serial.print(payloadStatus.Vcc);
+					Serialcomma();
+					Serial.print(payloadStatus.millisec);
+					Serialcomma();
+					#endif
 				}
 				else
 				{
+					#if LOG_TO_SDCARD
 					logfile.print(payloadTime.bin2usCoarse);
 					logfilecomma();
 					logfile.print(payloadTime.bin2usFine);
@@ -399,48 +485,16 @@ void loop() {
 					logfile.print(payloadTime.fineTime >> convert2Microsec);
 					logfile.print(F("."));
 					logfile.print(((payloadTime.fineTime & ((1L << convert2Microsec) - 1L)) * 10000) >> convert2Microsec);
-				}
-				if (!packetCount[node])
-				{
-					logfilecomma();
-					logfile.println(packetsSent);
-				}
-				else
-				{
-					logfile.println();
-				}
-				#endif
-
-				#if ECHO_TO_SERIAL
-				Serial.print(m);         // milliseconds since start
-				serialcomma();
-				#if RT_CLOCK
-				Serial.print(now.unixtime()); // seconds since 1/1/1970
-				serialcomma();
-				#endif
-				Serial.print(payloadTime.nodeId);
-				serialcomma();
-				Serial.print(payloadTime.count);
-				serialcomma();
-				if (payloadTime.nodeId & 0x20)
-				{
-					Serial.print(payloadStatus.temp);
-					serialcomma();
-					Serial.print(payloadStatus.Vcc);
-					serialcomma();
-					Serial.print(payloadStatus.millisec);
-					serialcomma();
-				}
-				else
-				{
+					#endif
+					#if ECHO_TO_SERIAL
 					Serial.print(payloadTime.bin2usCoarse);
-					serialcomma();
+					Serialcomma();
 					Serial.print(payloadTime.bin2usFine);
-					serialcomma();
+					Serialcomma();
 					Serial.print(payloadTime.varCoarse);
-					serialcomma();
+					Serialcomma();
 					Serial.print(payloadTime.varFine);
-					serialcomma();
+					Serialcomma();
 					
 					/*
 					Print coarse measurement
@@ -449,7 +503,7 @@ void loop() {
 					Serial.print(payloadTime.coarseTime >> convert2Microsec);
 					Serial.print(F("."));
 					Serial.print(((payloadTime.coarseTime & ((1L << convert2Microsec) - 1L)) * 100) >> convert2Microsec);
-					serialcomma();
+					Serialcomma();
 					
 					/*
 					Now for the fine measurement
@@ -459,18 +513,36 @@ void loop() {
 					Serial.print(payloadTime.fineTime >> convert2Microsec);
 					Serial.print(F("."));
 					Serial.print(((payloadTime.fineTime & ((1L << convert2Microsec) - 1L)) * 10000) >> convert2Microsec);
+					#endif
 				}
-				if (!packetCount[node])
-				{
-					serialcomma();
-					Serial.println(packetsSent);
-				}
-				else
-				{
-					Serial.println();
-				}
-				#endif
 			}
+			
+			// Log stats for receipt of packets
+			#if LOG_TO_SDCARD
+			if (!packetCount[nibble])
+			{
+				logfilecomma();
+				logfile.println(packetsSent);
+			}
+			else
+			{
+				logfile.println();
+			}
+			#endif
+			#if ECHO_TO_SERIAL
+			if (!packetCount[nibble])
+			{
+				Serialcomma();
+				Serial.println(packetsSent);
+			}
+			else
+			{
+				Serial.println();
+			}
+			#endif
+			
+
+
 			digitalWrite(ledPin, LOW);
 		}
 
