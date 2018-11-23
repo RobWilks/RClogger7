@@ -38,10 +38,10 @@ void flushbuffer();
 
 // for the data logging shield, we use digital pin 10 for the SD cs line
 #define USE_SERIAL 1 // echo data to serial port
-#define LOG_TO_SDCARD 1 // log data received
-#define RT_CLOCK 1 // use of RTC
+#define LOG_TO_SDCARD 0 // log data received
+#define RT_CLOCK 0 // use of RTC
 #define MAX_NODE 16
-#define BUTTON 1
+#define BUTTON 0
 // code to process time sync messages from the serial port   */
 #define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by unix time_t as ten ascii digits
 #define TIME_HEADER  'T'   // Header tag for serial time sync message e.g. T1542831319
@@ -233,12 +233,6 @@ void setup() {
 	// use debugging LED
 	pinMode(ledPin, OUTPUT);
 
-	#if USE_SERIAL
-	while (Serial.available()) {Serial.read();}
-	Serial.println(F("Enter 11 char unix timestamp 'T1234567890'"));
-	while (!Serial.available());
-	#endif // wait to start
-
 	#if RT_CLOCK
 	// connect to RTC
 	Wire.begin();
@@ -246,35 +240,40 @@ void setup() {
 	{
 		error(3);
 	}
+	#endif
 	
 	#if USE_SERIAL
+	while (Serial.available()) {Serial.read();}
+	#if RT_CLOCK
+	Serial.println(F("Enter 11 char unix timestamp 'T1234567890'"));
+	while (!Serial.available()); // wait for data
 	uint32_t t = processSyncMessage();
-	if (t > 0)
-	{
-		RTC.adjust(DateTime(t));
-		DateTime now = RTC.now();
-		Serial.print(F("Time adjusted to:"));		
-		Serial.print(now.year(), DEC);
-		Serial.print('/');
-		Serial.print(now.month(), DEC);
-		Serial.print('/');
-		Serial.print(now.day(), DEC);
-		Serial.print(' ');
-		Serial.print(now.hour(), DEC);
-		Serial.print(':');
-		Serial.print(now.minute(), DEC);
-		Serial.print(':');
-		Serial.print(now.second(), DEC);
-		Serial.println();
-	}
+	if (t > 0)	RTC.adjust(DateTime(t));
 	// following line sets the RTC to the date & time this sketch was compiled
 	//rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 	// This line sets the RTC with an explicit date & time, for example to set
 	// Nov 21, 2018 at 190600 hhmmss you would call:
 	// rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+	DateTime now = RTC.now();
+	Serial.print(F("Time:  "));
+	Serial.print(now.year(), DEC);
+	Serial.print('/');
+	Serial.print(now.month(), DEC);
+	Serial.print('/');
+	Serial.print(now.day(), DEC);
+	Serial.print(' ');
+	Serial.print(now.hour(), DEC);
+	Serial.print(':');
+	Serial.print(now.minute(), DEC);
+	Serial.print(':');
+	Serial.print(now.second(), DEC);
+	Serial.println();
+	#else
+	Serial.println(F("Enter any char"));
+	while (!Serial.available());// wait to start
 	#endif
 	#endif
-	
+
 	
 	#if LOG_TO_SDCARD
 
