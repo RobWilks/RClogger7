@@ -224,27 +224,29 @@ uint32_t processSyncMessage()
 }
 ///////////////////////////////////printHeaders//////////////////////////////////////
 
-	// print headers for different packet types; more efficient as function
-	// 0 for temperature node
-	// 1 for frequency measurement
-	void printHeader(int whichHeader)
-	{
+// print headers for different packet types; more efficient as function
+// 0 for temperature node
+// 1 for frequency measurement
+void printHeader(int whichHeader)
+{
 	#if LOG_TO_SDCARD
 	logfile.print(F("millis,"));
 	#if RT_CLOCK
 	logfile.print(F("stamp,"));
 	#endif
- 	logfile.println(F("node,count,"));
-   switch (whichHeader)
-    {
-	    case 0:
-	logfile.println(F("RCtime,tmp,chipTemp,Vbatt,var1,var2"));
-	    case 1:
-	logfile.println(F("bin2usCoarse,bin2usFine,varCoarse,varFine,coarseTime,fineTime"));
+	logfile.print(F("node,count,"));
+	switch (whichHeader)
+	{
+		case 0:
+		logfile.println(F("RCtime,tmp,chipTemp,Vbatt,var1,var2"));
+		break;
+		case 1:
+		logfile.println(F("bin2usCoarse,bin2usFine,varCoarse,varFine,coarseTime,fineTime"));
+		break;
 	}
- 	#endif
+	#endif
 
-		
+	
 
 
 	#if USE_SERIAL
@@ -252,21 +254,23 @@ uint32_t processSyncMessage()
 	#if RT_CLOCK
 	Serial.print(F("stamp,"));
 	#endif
-	Serial.println(F("node,count,"));
+	Serial.print(F("node,count,"));
 	switch (whichHeader)
 	{
 		case 0:
 		Serial.println(F("RCtime,tmp,chipTemp,Vbatt,var1,var2"));
+		break;
 		case 1:
 		Serial.println(F("bin2usCoarse,bin2usFine,varCoarse,varFine,coarseTime,fineTime"));
+		break;
 	}
 	#endif
-	}
+}
 ///////////////////////////////////setup//////////////////////////////////////
 
 void setup() {
 	#if USE_SERIAL
-	Serial.begin(115200);
+	Serial.begin(57600);
 	delay(1000);
 	#endif
 
