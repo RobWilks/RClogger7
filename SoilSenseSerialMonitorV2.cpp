@@ -222,6 +222,46 @@ uint32_t processSyncMessage()
 	}
 	return 0;
 }
+///////////////////////////////////printHeaders//////////////////////////////////////
+
+	// print headers for different packet types; more efficient as function
+	// 0 for temperature node
+	// 1 for frequency measurement
+	void printHeader(int whichHeader)
+	{
+	#if LOG_TO_SDCARD
+	logfile.print(F("millis,"));
+	#if RT_CLOCK
+	logfile.print(F("stamp,"));
+	#endif
+ 	logfile.println(F("node,count,"));
+   switch (whichHeader)
+    {
+	    case 0:
+	logfile.println(F("RCtime,tmp,chipTemp,Vbatt,var1,var2"));
+	    case 1:
+	logfile.println(F("bin2usCoarse,bin2usFine,varCoarse,varFine,coarseTime,fineTime"));
+	}
+ 	#endif
+
+		
+
+
+	#if USE_SERIAL
+	Serial.print(F("millis,"));
+	#if RT_CLOCK
+	Serial.print(F("stamp,"));
+	#endif
+	Serial.println(F("node,count,"));
+	switch (whichHeader)
+	{
+		case 0:
+		Serial.println(F("RCtime,tmp,chipTemp,Vbatt,var1,var2"));
+		case 1:
+		Serial.println(F("bin2usCoarse,bin2usFine,varCoarse,varFine,coarseTime,fineTime"));
+	}
+	#endif
+	}
 ///////////////////////////////////setup//////////////////////////////////////
 
 void setup() {
@@ -312,8 +352,6 @@ void setup() {
 	Serial.print(F("Log-> "));
 	Serial.println(filename);
 	#endif
-
-	logfile.println(F("millis,stamp,node,count,RCtime,tmp,chipTemp,Vbatt,var1,var2"));
 	#endif // LOG_TO_SDCARD
 	
 	
@@ -323,23 +361,10 @@ void setup() {
 		error(4);
 	}
 
-	#if LOG_TO_SDCARD
-	logfile.print(F("millis,"));
-	#if RT_CLOCK
-	logfile.print(F("stamp,"));
-	#endif
-	logfile.println(F("node,count,varCoarse,varFine,bin2usCoarse,bin2usFine,coarseTime,fineTime"));
-	#endif
-
-
-
-	#if USE_SERIAL
-	Serial.print(F("millis,"));
-	#if RT_CLOCK
-	Serial.print(F("stamp,"));
-	#endif
-	Serial.println(F("node,count,varCoarse,varFine,bin2usCoarse,bin2usFine,coarseTime,fineTime"));
-	#endif
+	// print headers for different packet types
+	printHeader(0);
+	printHeader(1);
+	
 
 	syncTime = millis(); // time of last sync()
 
